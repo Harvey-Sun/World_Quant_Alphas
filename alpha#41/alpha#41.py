@@ -39,12 +39,16 @@ def init_per_day(sdk):
     position_dict = dict([i.code, i.optPosition] for i in position)
     stock_to_buy = set(stock_pool) - set(position_dict.keys())
     stock_to_sell = set(position_dict.keys()) - set(stock_pool)
+    sdk.setGlobal('position_dic', position_dict)
     sdk.setGlobal('stock_to_buy', stock_to_buy)
     sdk.setGlobal('stock_to_sell', stock_to_sell)
 
 
 def strategy(sdk):
     today = sdk.getNowDate()
+    sdk.sdklog(today,'====================')
+
+    position_dict = sdk.getGlobal('position_dict')
     stock_to_buy = sdk.getGlobal('stock_to_buy')
     stock_to_sell = sdk.getGlobal('stock_to_sell')
     quotes = sdk.getQuotes(list(stock_to_buy | stock_to_sell))
