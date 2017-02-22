@@ -30,16 +30,16 @@ def init_per_day(sdk):
     close = pd.Series(sdk.getFieldData('LZ_GPA_QUOTE_TCLOSE')[-1], index=stock_list)
     value = pd.Series(sdk.getFieldData('LZ_GPA_QUOTE_TVALUE')[-1], index=stock_list)
     volume = pd.Series(sdk.getFieldData('LZ_GPA_QUOTE_TVOLUME')[-1], index=stock_list)
-    stop = pd.Series(sdk.getFieldData('LZ_GPA_SLCIND_STOP_FLAG')[-1], index=stock_list)
+    stop = pd.DataFrame(sdk.getFieldData('LZ_GPA_SLCIND_STOP_FLAG')[-2:], columns=stock_list)
     alpha_41 = ((high * low) ** 0.5 - (value / volume) * 10) / close  # 计算昨天的alpha41
-    alpha_41 = pd.Series(np.where(stop.isnull(), alpha_41, np.nan), index=stock_list)  # 剔除今天停牌的股票
+    alpha_41 = pd.Series(np.where(stop.isnull().all(axis=0), alpha_41, np.nan), index=stock_list)  # 剔除今天停牌的股票
     alpha_41.sort_values(ascending=True, inplace=True)
     stock_pool = alpha_41.index[:buy_number]  # 选出alpha41因子较小的股票
     position = sdk.getPositions()
     position_dict = dict([i.code, i.optPosition] for i in position)
     stock_to_buy = set(stock_pool) - set(position_dict.keys())
     stock_to_sell = set(position_dict.keys()) - set(stock_pool)
-    sdk.setGlobal('position_dic', position_dict)
+    sdk.setGlobal('position_dict', position_dict)
     sdk.setGlobal('stock_to_buy', stock_to_buy)
     sdk.setGlobal('stock_to_sell', stock_to_sell)
 
