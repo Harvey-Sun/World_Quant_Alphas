@@ -123,7 +123,7 @@ def group_analysis(factor, data, return_mode, period=1, bins=10):
     close = data['close']
     OPEN = data['OPEN']
     if return_mode == 'close-close':
-            returns = close.pct_change(period).shift(-period)
+        returns = close.pct_change(period).shift(-period)
     elif return_mode == 'close-open':
         returns = (close.shift(-(period-1)) / OPEN - 1).shift(-period)
     elif return_mode == 'open-open':
@@ -157,7 +157,7 @@ def _analysis(factor, data, return_mode, stock_number, period=1):
     close = data['close']
     OPEN = data['OPEN']
     if return_mode == 'close-close':
-            returns = close.pct_change(period).shift(-period)
+        returns = close.pct_change(period).shift(-period)
     elif return_mode == 'close-open':
         returns = (close.shift(-(period-1)) / OPEN - 1).shift(-period)
     elif return_mode == 'open-open':
@@ -168,17 +168,19 @@ def _analysis(factor, data, return_mode, stock_number, period=1):
     _mean = []
     _return = []
     _t = []
+    stocks = pd.DataFrame()
     for i in range(0, days, period):
         t = factor.index[i]
         _t.append(t)
         temp = factor.ix[t].dropna()
         temp.sort_values(ascending=True, inplace=True)
         stock_to_hold = temp[:stock_number].index
+        stocks[t] = stock_to_hold
         _return.append(returns.ix[t][stock_to_hold].mean())
         _mean.append(temp[stock_to_hold].mean())
     _mean = pd.Series(_mean, index=_t, name='factor_mean')
     _return = pd.Series(_return, index=_t, name='mean_return')
-    return {'factor_mean': _mean, 'mean_return': _return}
+    return {'factor_mean': _mean, 'mean_return': _return, 'stocks': stocks.T}
 
 
 high = import_data('LZ_GPA_QUOTE_THIGH')
@@ -220,7 +222,8 @@ a['group_mean'].min()
 (a['group_return'] + 1).cumprod().plot(figsize=(14, 7))
 
 
-a = _analysis(stt, data, 'close-close', stock_number=50)
+a = _analysis(stt, data, 'close-close', stock_number=10)
 a['mean_return'].mean()
 a['factor_mean'].min()
 (a['mean_return'] + 1).cumprod().plot(figsize=(14, 7))
+a['stocks'].to_csv('F:\Factors\World_Quant_Alphas/10_stocks.csv')
