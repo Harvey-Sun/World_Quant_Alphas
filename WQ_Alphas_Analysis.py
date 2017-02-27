@@ -28,8 +28,11 @@ def pearson(x, y, skipna=False):
     return upside / downside
 
 
-def save_factor(factor, factor_id):
-    factor_name = 'alpha#%s_origin_1D' % factor_id
+def save_factor(factor, factor_id, no_zdt):
+    if no_zdt:
+        factor_name = 'alpha#%s_no_zdt_1D' % factor_id
+    else:
+        factor_name = 'alpha#%s_origin_1D' % factor_id
     factor.index.name = factor_name
     to_file = 'F:\Strategies\World_Quant_Alphas/#%s' % factor_id
     if not os.path.exists(to_file):
@@ -71,6 +74,7 @@ def factor_cal(data, factor_id, no_zdt=False):
     adj_low = low * price_adj_f
     adj_volume = volume / price_adj_f
     returns = adj_close.pct_change()
+    print '开始计算'
     if factor_id == '001':
         returns = adj_close.pct_change()
         returns[returns < 0] = returns.rolling(window=20).std()
@@ -156,6 +160,31 @@ def factor_cal(data, factor_id, no_zdt=False):
         temp1 = high_rank.rolling(window=3).corr(volume_rank)
         factor = -1 * temp1.rank(axis=1, pct=True).rolling(window=3).sum()
         factor[rolling_stop(stop, 3)] = np.nan
+    elif factor_id == '016':
+        high_rank = adj_high.rank(axis=1, pct=True)
+        volume_rank = adj_volume.rank(axis=1, pct=True)
+        factor = -1 * high_rank.rolling(window=5).cov(volume_rank)
+        factor[rolling_stop(stop, 5)] = np.nan
+    elif factor_id == '017':
+        temp1 = rolling_rank(adj_close, 10).rank(axis=1, pct=True)
+        temp2 = adj_close.diff(1).diff(1).rank(axis=1, pct=True)
+        temp3 = rolling_rank(adj_volume / adj_volume.rolling(window=20).mean(), 5).rank(axis=1, pct=True)
+        factor = -1 * temp1 * temp2 * temp3
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '018':
+        temp1 = adj_close.rolling(window=10).corr(adj_OPEN).replace([-np.inf, np.inf], np.nan)
+        temp2 = np.abs(adj_close - adj_OPEN).rolling(window=5).std()
+        factor = -1 * (temp2 + temp1 + adj_close - adj_OPEN).rank(axis=1, pct=True)
+        factor[rolling_stop(stop, 10)] = np.nan
+    elif factor_id == '019':
+        factor = -1 * np.sign(adj_close.diff(7)) * (1 + returns.rolling(window=250).sum())
+        factor[rolling_stop(stop, 8)] = np.nan
+    elif factor_id == '020':
+        temp1 = (adj_OPEN - adj_high.diff(1)).rank(axis=1, pct=True)
+        temp2 = (adj_OPEN - adj_close.diff(1)).rank(axis=1, pct=True)
+        temp3 = (adj_OPEN - adj_low.diff(1)).rank(axis=1, pct=True)
+        factor = -1 * temp1 * temp2 * temp3
+        factor[rolling_stop(stop, 2)] = np.nan
     elif factor_id == '041':
         factor = ((high * low) ** 0.5 - (value / volume) * 10)
         factor[stop.notnull()] = np.nan
@@ -195,8 +224,8 @@ def factor_cal(data, factor_id, no_zdt=False):
         bool_temp = np.logical_or(close == increase_stop, decrease_stop == close)
         factor = np.where(bool_temp, np.nan, factor)
         factor = pd.DataFrame(factor, columns=close.columns, index=close.index)
-    print '计算完成，保存因子文件'
-    save_factor(factor, factor_id)
+    print '计算完成\n保存因子'
+    save_factor(factor, factor_id, no_zdt)
     return factor
 
 
@@ -340,9 +369,9 @@ data = {'high': high,
         'price_adj_f': price_adj_f}
 
 
-factor_001 = factor_cal(data, '001', no_zdt=False)
+factor = factor_cal(data, '016', no_zdt=False)
 factor_006 = factor_cal(data, '006', no_zdt=False)
-factors = pd.concat([factor_003.stack(), factor_006.stack()], axis=1)
+factors = pd.concat([factor.stack(), factor_006.stack()], axis=1)
 days = factors.index.levels[0]
 for d in days:
     print factors.ix[d].corr().iloc[0][1]
