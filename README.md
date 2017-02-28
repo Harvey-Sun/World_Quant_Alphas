@@ -1,2 +1,2 @@
 # World_Quant_Alphas　
-该Repository下每个文件下是对World Quant 101 alphas中的一个的复制，其中alpha#41_cal.py是计算第41个因子的代码，而alpha#41.py是该因子策略化的代码，回测系统使用的是量子金服云宽客策略平台。
+该Repository下每个文件下是对World Quant 101 alphas中的一个的复制，其中WQ_Alphas_Analysis.py是计算各个因子的代码，以及对因子进行分组分析的代码，而类似#041文件下下的alpha#41.py是第41号因子策略化的代码，回测系统使用的是量子金服云宽客策略平台。
