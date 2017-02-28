@@ -6,14 +6,14 @@ import pandas as pd
 
 username = 'Harvey_Sun'
 password = 'P948894dgmcsy'
-Strategy_Name = 'WQ_alpha#013'
+Strategy_Name = 'WQ_alpha#013_20_200'
 
 INIT_CAP = 100000000
 START_DATE = '20130101'
 END_DATE = '20161231'
 Fee_Rate = 0.001
 program_path = 'C:/cStrategy/'
-buy_number = 100
+buy_number = 200
 period = 20
 
 
@@ -22,7 +22,7 @@ def initial(sdk):
                      'LZ_GPA_CMFTR_CUM_FACTOR', 'LZ_GPA_SLCIND_STOP_FLAG'])
     stock_pool = []
     sdk.setGlobal('stock_pool', stock_pool)
-    step = 20
+    step = period
     sdk.setGlobal('step', step)
 
 

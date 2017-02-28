@@ -59,7 +59,25 @@ def rolling_rank(data, window):
     return temp.T
 
 
-def factor_cal(data, factor_id, no_zdt=False):
+def rolling_new(data, window):
+    temp = pd.DataFrame(index=data.columns)
+    for i in data.index:
+        one = data[:i][-window:].isnull().any(axis=0)
+        temp[i] = one
+    return temp.T
+
+
+def linear_decay(data, window):
+    result = pd.DataFrame(np.nan, index=data.index, columns=data.columns)
+    weight = np.arange(window) + 1.
+    weight = weight / weight.sum()
+    for i in range(window, data.shape[0]):
+        t = data.index[i]
+        result.ix[t,:] = data[i-window:i].T.dot(weight)
+    return result
+
+
+def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
     high = data['high']
     low = data['low']
     close = data['close']
@@ -67,6 +85,7 @@ def factor_cal(data, factor_id, no_zdt=False):
     value = data['value']
     volume = data['volume']
     stop = data['stop']
+    st = data['st']
     price_adj_f = data['price_adj_f']
     adj_OPEN = OPEN * price_adj_f
     adj_close = close * price_adj_f
@@ -185,6 +204,129 @@ def factor_cal(data, factor_id, no_zdt=False):
         temp3 = (adj_OPEN - adj_low.diff(1)).rank(axis=1, pct=True)
         factor = -1 * temp1 * temp2 * temp3
         factor[rolling_stop(stop, 2)] = np.nan
+    elif factor_id == '021':
+        cond_1 = adj_close.rolling(window=8).mean() + adj_close.rolling(window=8).std() < adj_close.rolling(window=2).mean()
+        cond_2 = adj_close.rolling(window=8).mean() - adj_close.rolling(window=8).std() > adj_close.rolling(window=2).mean()
+        cond_3 = adj_volume / adj_volume.rolling(window=20).mean() >= 1
+        cond_4 = adj_volume / adj_volume.rolling(window=20).mean() < 1
+        factor = pd.DataFrame(np.nan, index=adj_close.index, columns=adj_close.columns)
+        factor[cond_1] = -1
+        factor[cond_2] = 1
+        factor[np.logical_and(np.logical_not(np.logical_or(cond_1, cond_2)), cond_3)] = 1
+        factor[np.logical_and(np.logical_not(np.logical_or(cond_1, cond_2)), cond_4)] = -1
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '022':
+        part_1 = adj_high.rolling(window=5).corr(adj_volume).diff(5)
+        part_2 = adj_close.rolling(window=20).std().rank(axis=1, pct=True)
+        factor = -1 * part_1 * part_2
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '023':
+        factor = pd.DataFrame(np.nan, index=adj_high.index, columns=adj_high.columns)
+        factor[adj_high > adj_high.rolling(window=20).mean()] = -1 * adj_high.diff(2)
+        factor[adj_high <= adj_high.rolling(window=20).mean()] = 0
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '024':
+        cond_1 = adj_close.rolling(window=100).mean().diff(100) / adj_close.shift(100) <= 0.05
+        factor = -1 * adj_close.diff(3)
+        factor[cond_1] = -1 * (adj_close - adj_close.rolling(window=100).min())
+        factor[rolling_stop(stop, 3)] = np.nan
+    elif factor_id == '025':
+        part_1 = -1 * returns * adj_volume.rolling(window=20).mean()
+        part_2 = (value / adj_volume) * (adj_high - adj_close)
+        factor = (part_1 * part_2).rank(axis=1, pct=True)
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '026':
+        volume_rank = rolling_rank(adj_volume, 5)
+        high_rank = rolling_rank(adj_high, 5)
+        factor = -1 * volume_rank.rolling(window=5).corr(high_rank).rolling(window=3).max()
+    elif factor_id == '027':
+        factor = pd.DataFrame(np.nan, index=volume.index, columns=volume.columns)
+        volume_rank = adj_volume.rank(axis=1, pct=True)
+        vwap_rank = (value / adj_volume).rank(axis=1, pct=True)
+        corr_ = volume_rank.rolling(window=6).corr(vwap_rank)
+        corr_rank = corr_.rolling(window=2).mean().rank(axis=1, pct=True)
+        cond_1 = corr_rank > 0.5
+        cond_2 = corr_rank <= 0.5
+        factor[cond_1] = -1
+        factor[cond_2] = 1
+        factor[rolling_stop(stop, 6)] = np.nan
+    elif factor_id == '028':
+        part_1 = adj_volume.rolling(window=20).mean().rolling(window=5).corr(adj_low)
+        part_2 = (adj_high + adj_low) / 2 - adj_close
+        factor = part_1 + part_2
+        factor = (factor.T / factor.sum(axis=1)).T
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '029':
+        temp1 = rolling_rank(-1 * returns.shift(6), 5)
+        close_rank = (-1 * (adj_close - 1).diff(5).rank(axis=1, pct=True)).rank(axis=1, pct=True)
+        temp2 = np.log(close_rank.rolling(window=2).min())
+        temp3 = (temp2.T / temp2.sum(axis=1)).T.rank(axis=1, pct=True)
+        factor = temp3.rolling(window=5).min() + temp1
+        factor[rolling_stop(stop, 6)] = np.nan
+    elif factor_id == '030':
+        sign_1 = np.sign(adj_close.diff())
+        sign_2 = np.sign(adj_close.diff().shift())
+        sign_3 = np.sign(adj_close.diff().shift(2))
+        sign_rank = (sign_1 + sign_2 + sign_3)
+        factor = (1 - sign_rank) * adj_volume.rolling(window=5).sum() / adj_volume.rolling(window=20).sum()
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '031':
+        close_rank_1 = adj_close.diff(10).rank(axis=1, pct=True)
+        decay_linear_rank = decay_linear(-1 * close_rank_1, 10).rank(axis=1, pct=True)
+        close_rank_2 = (-1 * adj_close.diff(3)).rank(axis=1, pct=True)
+        corr_ = adj_volume.rolling(window=20).mean().rolling(window=12).corr(adj_low)
+        corr_sign = np.sign((corr_.T / corr_.summ(axis=1)).T)
+        factor = decay_linear_rank + close_rank_2 + corr_sign
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '032':
+        temp1 = adj_close.rolling(window=7).mean() - adj_close
+        part_1 = (temp1.T / temp.sum(axis=1)).T
+        vwap = value / adj_volume
+        temp2 = vwap.rolling(window=230).corr(adj_close.shift(5))
+        part_2 = (temp2.T / temp2.sum(axis=1)).T
+        factor = part_1 + 20 * part_2
+        factor[rolling_stop(stop, 7)] = np.nan
+    elif factor_id == '033':
+        factor = (OPEN / close - 1).rank(axis=1, pct=True)
+        factor[stop.notnull()] = np.nan
+    elif factor_id == '034':
+        temp1 = returns.rolling(window=2).std() / returns.rolling(window=5).std()
+        close_rank = adj_close.diff().rank(axis=1, pct=True)
+        factor = (1 - temp1.rank(axis=1, pct=True) + 1 - close_rank).rank(axis=1, pct=True)
+        factor[rolling_stop(stop, 5)] = np.nan
+    elif factor_id == '035':
+        volume_rank = rolling_rank(adj_volume, 32)
+        xx_rank = rolling_rank(adj_close + adj_high - adj_low, 16)
+        returns_rank = rolling_rank(returns, 32)
+        factor = volume_rank * (１- xx_rank) * (1 - returns_rank)
+        factor[rolling_stop(stop, 32)] = np.nan
+    elif factor_id == '036':
+        part_1 = (adj_close - adj_OPEN).rolling(window=15).corr(adj_volume.shift(1)).rank(axis=1, pct=True)
+        part_2 = (adj_OPEN - adj_close).rank(axis=1, pct=True)
+        part_3 = rolling_rank(-1 * returns.shift(6), 5).rank(axis=1, pct=True)
+        part_4 = (value / adj_volume).rolling(window=6).corr(adj_volume.rolling(window=20).mean()).rank(axis=1, pct=True)
+        part_5 = ((adj_close.rolling(window=200).mean() - adj_OPEN) * (adj_close - adj_OPEN)).rank(axis=1, pct=True)
+        factor = 2.21 * part_1 + 0.7 * part_2 + 0.73 * part_3 + part_4 + 0.6 * part_5
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '037':
+        corr_ = (adj_OPEN - adj_close).shift().rolling(window=200).corr(adj_close)
+        factor = corr_.rank(axis=1, pct=True) + (adj_OPEN - adj_close).rank(axis=1, pct=True)
+        factor[stop.notnull()] = np.nan
+    elif factor_id == '038':
+        part_1 = rolling_rank(adj_close, 10).rank(axis=1, pct=True)
+        part_2 = (close / OPEN).rank(axis=1, pct=True)
+        factor = -1 * part_1 * part_2
+        factor[rolling_stop(stop, 10)] = np.nan
+    elif factor_id == '039':
+        temp1 = adj_volume / adj_volume.rolling(window=20).mean()
+        decay_linear_rank = decay_linear(temp1, 9).rank(axis=1, pct=True)
+        part_1 = (adj_close.diff(7) * (1 - decay_linear_rank)).rank(axis=1, pct=True)
+        part_2 = returns.rolling(window=250).sum().rank(axis=1, pct=True)
+        factor = -1 * part_1 * (1 +　part_2)
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '040':
+        factor = -1 * adj_high.rolling(window=10).std().rank(axis=1, pct=True) * adj_high.rolling(window=10).corr(adj_volume)
+        factor[rolling_stop(stop, 10)] = np.nan
     elif factor_id == '041':
         factor = ((high * low) ** 0.5 - (value / volume) * 10)
         factor[stop.notnull()] = np.nan
@@ -224,6 +366,12 @@ def factor_cal(data, factor_id, no_zdt=False):
         bool_temp = np.logical_or(close == increase_stop, decrease_stop == close)
         factor = np.where(bool_temp, np.nan, factor)
         factor = pd.DataFrame(factor, columns=close.columns, index=close.index)
+    # 将st股票的因子值设为na
+    if no_st:
+        factor[st.notnull()] = np.nan
+    # 将st股票（上市小于63天）的因子设为na
+    if no_new:
+        factor[rolling_new(close, 63)] = np.nan
     print '计算完成\n保存因子'
     save_factor(factor, factor_id, no_zdt)
     return factor
@@ -284,6 +432,7 @@ def group_analysis(factor, data, return_mode, period=1, bins=10, cut_mode='quant
     days = len(factor.index)
     group_mean = pd.DataFrame()
     group_return = pd.DataFrame()
+    stock_num = pd.DataFrame()
     for i in range(0, days, period):
         t = factor.index[i]
         temp = factor.ix[t].dropna()
@@ -296,6 +445,7 @@ def group_analysis(factor, data, return_mode, period=1, bins=10, cut_mode='quant
         elif cut_mode == 'interval':
             groups = pd.cut(temp, bins, labels=False)
         group_mean[t] = factor.ix[t].dropna().groupby(groups).mean()
+        stock_num[t] = factor.ix[t].dropna().groupby(groups).count()
         if return_mode == 'close-close':
             period_returns = returns.ix[t:].ix[1: period+1].groupby(groups, axis=1).mean()
         elif return_mode == 'open-open':
@@ -309,9 +459,10 @@ def group_analysis(factor, data, return_mode, period=1, bins=10, cut_mode='quant
     group_mean = group_mean.T
     group_mean['Factor Average'] = a_mean
     group_return.columns.name = 'Group'
-    group_return = group_return
     group_return['Simple Average'] = a_return
-    return {'group_mean': group_mean, 'group_return': group_return}
+    stock_num.index.name = 'Group'
+    stock_num = stock_num.T
+    return {'group_mean': group_mean, 'group_return': group_return, 'stock_num': stock_num}
 
 
 def _analysis(factor, data, return_mode, stock_number, ascending=True, period=1):
@@ -358,6 +509,7 @@ value = import_data('LZ_GPA_QUOTE_TVALUE')
 volume = import_data('LZ_GPA_QUOTE_TVOLUME')
 stop = import_data('LZ_GPA_SLCIND_STOP_FLAG')
 price_adj_f = import_data('LZ_GPA_CMFTR_CUM_FACTOR')
+st = import_data('LZ_GPA_SLCIND_ST_FLAG')
 
 data = {'high': high,
         'low': low,
@@ -366,10 +518,11 @@ data = {'high': high,
         'value': value,
         'volume': volume,
         'stop': stop,
+        'st': st,
         'price_adj_f': price_adj_f}
 
 
-factor = factor_cal(data, '016', no_zdt=False)
+factor = factor_cal(data, '028', no_zdt=False, no_st=False, no_new=False)
 factor_006 = factor_cal(data, '006', no_zdt=False)
 factors = pd.concat([factor.stack(), factor_006.stack()], axis=1)
 days = factors.index.levels[0]
