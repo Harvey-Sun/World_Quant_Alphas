@@ -86,6 +86,8 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
     volume = data['volume']
     stop = data['stop']
     st = data['st']
+    fcf = data['fcf']
+    asset_debt = data['asset_debt']
     price_adj_f = data['price_adj_f']
     adj_OPEN = OPEN * price_adj_f
     adj_close = close * price_adj_f
@@ -330,6 +332,54 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
     elif factor_id == '041':
         factor = ((high * low) ** 0.5 - (value / volume) * 10)
         factor[stop.notnull()] = np.nan
+    elif factor_id == '042':
+        vwap = value / volume
+        factor = (vwap - close).rank(axis=1, pct=True) / (vwap + close).rank(axis=1, pct=True)
+        factor[stop.notnull()] = np.nan
+    elif factor_id == '043':
+        part_1 = rolling_rank(adj_volume / adj_volume.rolling(window=20).mean(), 20)
+        part_2 = rolling_rank(-1 * adj_close.diff(7), 8)
+        factor = part_1 * part_2
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '044':
+        factor = -1 * adj_high.rolling(window=5).corr(adj_volume.rank(axis=1, pct=True))
+        factor[rolling_stop(stop, 5)] = np.nan
+    elif factor_id == '045':
+        part_1 = adj_close.shift(5).rolling(window=20).mean().rank(axis=1, pct=True)
+        part_2 = adj_close.rolling(window=2).corr(adj_volume)
+        temp1 = adj_close.rolling(window=5).sum()
+        temp2 = adj_close.rolling(window=20).sum()
+        part_3 = temp1.rolling(window=2).corr(temp2).rank(axis=1, pct=True)
+        factor = -1 * part_1 * part_2 * part_3
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '046':
+        factor = -1 * adj_close.diff(1)
+        temp1 = (adj_close.shift(20) - adj_close.shift(10)) / 10
+        temp2 = (adj_close.shift(10) - adj_close) / 10
+        cond_1 = temp1 - temp2 > 0.25
+        cond_2 = temp1 - temp2 < 0
+        factor[cond_2] = 1
+        factor[cond_1] = -1
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '047':
+        part_1 = (1 / adj_close).rank(axis=1, pct=True) * adj_volume / adj_volume.rolling(window=20).mean()
+        part_2 = adj_high * (adj_high - adj_close).rank(axis=1, pct=True) / adj_high.rolling(window=5).mean()
+        vwap = value / adj_volume
+        part_3 = vwap.diff(5).rank(axis=1, pct=True)
+        factor = part_1 * part_2 * part_3
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '049':
+        factor = -1 * adj_close.diff()
+        temp1 = (adj_close.shift(20) - adj_close.shift(10)) / 10
+        temp2 = (adj_close.shift(10) - adj_close) / 10
+        factor[temp1 - temp2 < 0.1] = 1
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '050':
+        volume_rank = adj_volume.rank(axis=1, pct=True)
+        vwap_rank = (value / adj_volume).rank(axis=1, pct=True)
+        corr_ = volume_rank.rolling(window=5).corr(vwap_rank)
+        factor = -1 * rolling_rank(corr_.rank(axis=1, pct=True), 5)
+        factor[rolling_stop(stop, 5)] = np.nan
     elif factor_id == '055':
         numerator = adj_close - adj_low.rolling(window=12).min()
         denominator = adj_high.rolling(window=12).max() - adj_low.rolling(window=12).min()
@@ -357,6 +407,10 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
             vol.index.name = t
             factor[t] = vol
         factor = factor.T
+    elif factor_id == 'PeterLynch':
+        fcf[fcf < 0] = np.nan
+        asset_debt[asset_debt < 0] = np.nan
+        factor = (close / fcf).rank(axis=1, pct=True) * asset_debt.rank(axis=1, pct=True)
     else:
         print 'factor id is wrong'
     # 将涨跌停股票的因子设为na
@@ -510,6 +564,8 @@ volume = import_data('LZ_GPA_QUOTE_TVOLUME')
 stop = import_data('LZ_GPA_SLCIND_STOP_FLAG')
 price_adj_f = import_data('LZ_GPA_CMFTR_CUM_FACTOR')
 st = import_data('LZ_GPA_SLCIND_ST_FLAG')
+fcf = import_data('LZ_GPA_FIN_IND_FCFFPS')
+asset_debt = import_data('LZ_GPA_FIN_IND_DEBTTOASSETS')
 
 data = {'high': high,
         'low': low,
@@ -519,6 +575,8 @@ data = {'high': high,
         'volume': volume,
         'stop': stop,
         'st': st,
+        'fcf': fcf,
+        'asset_debt': asset_debt,
         'price_adj_f': price_adj_f}
 
 
