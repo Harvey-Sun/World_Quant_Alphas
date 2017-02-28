@@ -282,7 +282,7 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         factor[rolling_stop(stop, 20)] = np.nan
     elif factor_id == '032':
         temp1 = adj_close.rolling(window=7).mean() - adj_close
-        part_1 = (temp1.T / temp.sum(axis=1)).T
+        part_1 = (temp1.T / temp1.sum(axis=1)).T
         vwap = value / adj_volume
         temp2 = vwap.rolling(window=230).corr(adj_close.shift(5))
         part_2 = (temp2.T / temp2.sum(axis=1)).T
