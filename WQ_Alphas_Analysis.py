@@ -274,10 +274,10 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         factor[rolling_stop(stop, 20)] = np.nan
     elif factor_id == '031':
         close_rank_1 = adj_close.diff(10).rank(axis=1, pct=True)
-        decay_linear_rank = decay_linear(-1 * close_rank_1, 10).rank(axis=1, pct=True)
+        decay_linear_rank = linear_decay(-1 * close_rank_1, 10).rank(axis=1, pct=True)
         close_rank_2 = (-1 * adj_close.diff(3)).rank(axis=1, pct=True)
         corr_ = adj_volume.rolling(window=20).mean().rolling(window=12).corr(adj_low)
-        corr_sign = np.sign((corr_.T / corr_.summ(axis=1)).T)
+        corr_sign = np.sign((corr_.T / corr_.sum(axis=1)).T)
         factor = decay_linear_rank + close_rank_2 + corr_sign
         factor[rolling_stop(stop, 20)] = np.nan
     elif factor_id == '032':
@@ -300,7 +300,7 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         volume_rank = rolling_rank(adj_volume, 32)
         xx_rank = rolling_rank(adj_close + adj_high - adj_low, 16)
         returns_rank = rolling_rank(returns, 32)
-        factor = volume_rank * (１- xx_rank) * (1 - returns_rank)
+        factor = volume_rank * (1 - xx_rank) * (1 - returns_rank)
         factor[rolling_stop(stop, 32)] = np.nan
     elif factor_id == '036':
         part_1 = (adj_close - adj_OPEN).rolling(window=15).corr(adj_volume.shift(1)).rank(axis=1, pct=True)
@@ -321,10 +321,10 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         factor[rolling_stop(stop, 10)] = np.nan
     elif factor_id == '039':
         temp1 = adj_volume / adj_volume.rolling(window=20).mean()
-        decay_linear_rank = decay_linear(temp1, 9).rank(axis=1, pct=True)
+        decay_linear_rank = linear_decay(temp1, 9).rank(axis=1, pct=True)
         part_1 = (adj_close.diff(7) * (1 - decay_linear_rank)).rank(axis=1, pct=True)
         part_2 = returns.rolling(window=250).sum().rank(axis=1, pct=True)
-        factor = -1 * part_1 * (1 +　part_2)
+        factor = -1 * part_1 * (1 + part_2)
         factor[rolling_stop(stop, 20)] = np.nan
     elif factor_id == '040':
         factor = -1 * adj_high.rolling(window=10).std().rank(axis=1, pct=True) * adj_high.rolling(window=10).corr(adj_volume)
@@ -580,7 +580,7 @@ data = {'high': high,
         'price_adj_f': price_adj_f}
 
 
-factor = factor_cal(data, '028', no_zdt=False, no_st=False, no_new=False)
+factor = factor_cal(data, '031', no_zdt=False, no_st=False, no_new=False)
 factor_006 = factor_cal(data, '006', no_zdt=False)
 factors = pd.concat([factor.stack(), factor_006.stack()], axis=1)
 days = factors.index.levels[0]
