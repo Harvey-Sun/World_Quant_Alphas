@@ -1,55 +1,55 @@
 # World_Quant_Alphas　
 该Repository下每个文件下是对World Quant 101 alphas中的一个的复制，其中WQ_Alphas_Analysis.py是计算各个因子的代码，以及对因子进行分组分析的代码，而类似#041文件下下的alpha#41.py是第41号因子策略化的代码，回测系统使用的是量子金服云宽客策略平台。
   
-
+  
 下面是从论文中摘出来的101个因子的计算公式
 
-* Alpha#1: 
+* Alpha#1:  
 (rank(Ts_ArgMax(SignedPower(((returns < 0) ? stddev(returns, 20) : close), 2.), 5)) - 0.5)
 
-* Alpha#2: 
+* Alpha#2:  
 (-1 * correlation(rank(delta(log(volume), 2)), rank(((close - open) / open)), 6))
 
-* Alpha#3: 
+* Alpha#3:  
 (-1 * correlation(rank(open), rank(volume), 10))
 
-* Alpha#4: 
+* Alpha#4:  
 (-1 * Ts_Rank(rank(low), 9))
 
-Alpha#5: 
+* Alpha#5:  
 (rank((open - (sum(vwap, 10) / 10))) * (-1 * abs(rank((close - vwap)))))
 
-Alpha#6: 
+* Alpha#6:  
 (-1 * correlation(open, volume, 10))
 
-Alpha#7: 
+* Alpha#7:  
 ((adv20 < volume) ? ((-1 * ts_rank(abs(delta(close, 7)), 60)) * sign(delta(close, 7))) : (-1* 1))
 
-Alpha#8: 
+* Alpha#8:  
 (-1 * rank(((sum(open, 5) * sum(returns, 5)) - delay((sum(open, 5) * sum(returns, 5)), 10))))
 
-Alpha#9: 
+* Alpha#9:  
 ((0 < ts_min(delta(close, 1), 5)) ? delta(close, 1) : ((ts_max(delta(close, 1), 5) < 0) ? delta(close, 1) : (-1 * delta(close, 1))))
 
-Alpha#10: 
+* Alpha#10:  
 rank(((0 < ts_min(delta(close, 1), 4)) ? delta(close, 1) : ((ts_max(delta(close, 1), 4) < 0) ? delta(close, 1) : (-1 * delta(close, 1)))))
 
-Alpha#11: 
+* Alpha#11:  
 ((rank(ts_max((vwap - close), 3)) + rank(ts_min((vwap - close), 3))) * rank(delta(volume, 3)))
 
-Alpha#12: 
+* Alpha#12:  
 (sign(delta(volume, 1)) * (-1 * delta(close, 1)))
 
-Alpha#13: 
+* Alpha#13:  
 (-1 * rank(covariance(rank(close), rank(volume), 5)))
 
-Alpha#14: 
+* Alpha#14:  
 ((-1 * rank(delta(returns, 3))) * correlation(open, volume, 10))
 
-Alpha#15: 
+* Alpha#15:  
 (-1 * sum(rank(correlation(rank(high), rank(volume), 3)), 3))
 
-Alpha#16: 
+* Alpha#16:  
 (-1 * rank(covariance(rank(high), rank(volume), 5)))
 
 Alpha#17: 
