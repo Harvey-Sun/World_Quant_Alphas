@@ -463,10 +463,29 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         part_2 = (temp3.T / temp3.sum(axis=1)).T
         factor = -1 * (2 * part_1 - part_2)
         factor[rolling_stop(stop, 10)] = np.nan
-    # elif factor_id == '061':
-    #     rank((vwap - ts_min(vwap, 16.1219))) < rank(correlation(vwap, adv180, 17.9282))
-    # elif factor_id == '062':
-    #     (rank(correlation(vwap, sum(adv20, 22.4101), 9.91009)) < rank(((rank(open) + rank(open)) < (rank(((high + low) / 2)) + rank(high))))) * -1
+    elif factor_id == '061':
+        vwap = value / adj_volume
+        adv180 = adj_volume.rolling(window=180).mean()
+        part_1 = (vwap - vwap.rolling(window=16).min()).rank(axis=1, pct=True)
+        part_2 = vwap.rolling(window=17).corr(adv180).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+        factor[rolling_stop(stop, 16)] = np.nan
+    elif factor_id == '062':
+        vwap = value / adj_volume
+        adv20 = adj_volume.rolling(window=20).mean()
+        part_1 = vwap.rolling(window=9).corr(adv20.rolling(window=22).sum()).rank(axis=1, pct=True)
+        temp1 = 2 * adj_OPEN.rank(axis=1, pct=True)
+        temp2 = ((adj_high + adj_low) / 2).rank(axis=1, pct=True) + adj_high.rank(axis=1, pct=True)
+        temp3 = temp1
+        temp3[temp1 < temp2] = 1
+        temp3[temp1 <= temp2] = 0
+        part_2 = temp3.rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+        factor = -1 * factor
     elif factor_id == '063':
         temp1 = ind_neutral(adj_close, ind).diff(2)
         part_1 = linear_decay(temp1, 8).rank(axis=1, pct=True)
@@ -475,11 +494,29 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         temp4 = temp2.rolling(window=13).corr(temp3)
         part_2 = linear_decay(temp4, 12).rank(axis=1, pct=True)
         factor = -1 * (part_1 - part_2)
-    # elif factor_id == '064':
-    #     ((rank(correlation(sum(((open * 0.178404) + (low * (1 - 0.178404))), 12.7054), sum(adv120, 12.7054), 16.6208)) < 
-    #         rank(delta(((((high + low) / 2) * 0.178404) + (vwap * (1 - 0.178404))), 3.69741))) * -1)
-    # elif factor_id == '065':
-    #     ((rank(correlation(((open * 0.00817205) + (vwap * (1 - 0.00817205))), sum(adv60, 8.6911), 6.40374)) < rank((open - ts_min(open, 13.635)))) * -1)
+    elif factor_id == '064':
+        vwap = value / adj_volume
+        adv120 = adj_volume.rolling(window=120).mean()
+        temp1 = (adj_OPEN * 0.178404 + adj_low * (1 - 0.178404)).rolling(window=12).sum()
+        temp2 = adv120.rolling(window=12).sum()
+        part_1 = temp1.rolling(window=16).corr(temp2).rank(axis=1, pct=True)
+        temp3 = (adj_high + adj_low) / 2 * 0.178404 + vwap * (1 - 0.178404)
+        part_2 = temp3.diff(3).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+        factor = -1 * factor
+    elif factor_id == '065':
+        vwap = value / adj_volume
+        adv60 = adj_volume.rolling(window=60).mean()
+        temp1 = adj_OPEN * 0.00817205 + vwap * (1 - 0.00817205)
+        temp2 = adv60.rolling(window=8).sum()
+        part_1 = temp1.rolling(window=6).corr(temp2).rank(axis=1, pct=True)
+        part_2 = (adj_OPEN - adj_OPEN.rolling(window=13).min()).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+        factor = -1 * factor
     elif factor_id == '066':
         vwap = value / adj_volume
         part_1 = linear_decay(vwap.diff(3), 7).rank(axis=1, pct=True)
@@ -495,8 +532,18 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         part_2 = temp1.rolling(window=6).corr(temp2).rank(axis=1, pct=True)
         factor = -1 * (part_1 ** part_2)
         factor[rolling_stop(stop, 20)] = np.nan
-    # elif factor_id == '068':
-    #     ((Ts_Rank(correlation(rank(high), rank(adv15), 8.91644), 13.9333) < rank(delta(((close * 0.518371) + (low * (1 - 0.518371))), 1.06157))) * -1)
+    elif factor_id == '068':
+        adv15 = adj_volume.rolling(window=15).mean()
+        high_rank = adj_high.rank(axis=1, pct=True)
+        adv15_rank = adv15.rank(axis=1, pct=True)
+
+        part_1 = rolling_rank(high_rank.rolling(window=8).corr(adv15_rank), 13)
+        temp = adj_close * 0.518371 + adj_low * (1 - 0.518371)
+        part_2 = temp.diff(1).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+        factor = -1 * factor
     elif factor_id == '069':
         vwap = value / adj_volume
         temp1 = ind_neutral(vwap, ind).diff(2)
@@ -513,13 +560,206 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         part_2 = rolling_rank(temp1.rolling(window=17).corr(temp2), 17)
         factor = -1 * (part_1 ** part_2)
         factor[rolling_stop(stop, 17)] = np.nan
+    elif factor_id == '071':
+        adv180 = adj_volume.rolling(window=180).mean()
+        vwap = value / adj_volume
+        adv180_rank = rolling_rank(adv180, 12)
+        close_rank = rolling_rank(adj_close, 3)
+        corr_ = close_rank.rolling(window=18).corr(adv180_rank)
+        part_1 = rolling_rank(linear_decay(corr_, 4), 15)
+        temp = (((adj_low + adj_OPEN) - (vwap + vwap)).rank(axis=1, pct=True)) ** 2
+        part_2 = rolling_rank(linear_decay(temp, 16), 4)
+        factor = part_1
+        factor[part_1 < part_2] = part_2
+        factor[rolling_stop(stop, 18)] = np.nan
+    elif factor_id == '072':
+        adv40 = adj_volume.rolling(window=40).mean()
+        vwap = value / adj_volume
+        corr_1 = ((adj_high + adj_low) / 2).rolling(window=8).corr(adv40)
+        part_1 = linear_decay(corr_1, 10).rank(axis=1, pct=True)
+        corr_2 = (rolling_rank(vwap, 3).rolling(window=6).corr(rolling_rank(volume, 18)))
+        part_2 = linear_decay(corr_2, 2).rank(axis=1, pct=True)
+        factor = part_1 / part_2
+        factor[rolling_stop(stop, 18)] = np.nan
+    elif factor_id == '073':
+        vwap = value / adj_volume
+        part_1 = linear_decay(vwap.diff(4), 2).rank(axis=1, pct=True)
+        temp1 = adj_OPEN * 0.147155 + adj_low * (1 - 0.147155)
+        part_2 = rolling_rank(linear_decay(-1 * temp1.diff(2) / temp1, 3), 16)
+        .diff(2)
+        temp2 = adj_OPEN * 0.147155 + adj_low * (1 - 0.147155)
+        factor = part_1
+        factor[part_1 < part_2] = part_2
+        factor = -1 * factor
+        factor[rolling_stop(stop, 16)] = np.nan
+    elif factor_id == '074':
+        vwap = value / adj_volume
+        adv30 = adj_volume.rolling(window=30).mean()
+        sum_adv30 = adv30.rolling(window=37).sum()
+        corr_1 = adj_close.rolling(window=15).corr(sum_adv30)
+        part_1 = corr_1.rank(axis=1, pct=True)
+        temp1 = (adj_high * 0.0261661 + vwap * (1 - 0.0261661)).rank(axis=1, pct=True)
+        volume_rank = adj_volume.rank(axis=1, pct=True)
+        corr_2 = temp1.rolling(window=11).corr(volume_rank)
+        part_2 = corr_2.rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+        factor = -1 * factor
+    elif factor_id == '075':
+        vwap = value / adj_volume
+        part_1 = vwap.rolling(window=4).corr(adj_volume).rank(axis=1, pct=True)
+        low_rank = adj_low.rank(axis=1, pct=True)
+        adv50_rank = adj_volume.rolling(window=50).mean().rank(axis=1, pct=True)
+        part_2 = low_rank.rolling(window=12).corr(adv50_rank).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+    elif factor_id == '076':
+        vwap = value / adj_volume
+        adv81 = adj_volume.rolling(window=81).mean()
+        part_1 = linear_decay(vwap.diff(1), 11).rank(axis=1, pct=True)
+        low_ind = ind_neutral(adj_low, ind)
+        corr_ = low_ind.rolling(window=8).corr(adv81)
+        part_2 = rolling_rank(linear_decay(rolling_rank(corr_, 19), 17), 19)
+        factor = part_1
+        factor[part_1 < part_2] = part_2
+        factor = -1 * factor
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '077':
+        vwap = value / adj_volume
+        adv40 = adj_volume.rolling(window=40).mean()
+        temp1 = (adj_high + adj_low) / 2 + adj_high - (vwap +adj_high)
+        part_1 = linear_decay(temp1, 20).rank(axis=1, pct=True)
+        temp2 = (adj_high + adj_low) / 2
+        corr_ = temp2.rolling(window=3).corr(adv40)
+        part_2 = linear_decay(corr_, 5).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 > part_2] = part_2
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '078':
+        vwap = value / adj_volume
+        temp1 = (adj_low * 0.352233 + vwap * (1 - 0.352233)).rolling(window=19).sum()
+        temp2 = adj_volume.rolling(window=40).mean().rolling(window=19).sum()
+        part_1 = temp1.rolling(window=6).corr(temp1).rank(axis=1, pct=True)
+        vwap_rank = vwap.rank(axis=1, pct=True)
+        volume_rank = volume.rank(axis=1, pct=True)
+        part_2 = vwap_rank.rolling(window=5).corr(volume_rank).rank(axis=1, pct=True)
+        factor = part_1 ** part_2
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '079':
+        vwap = value / adj_volume
+        adv150 = adj_volume.rolling(window=150).mean()
+        temp = adj_close * 0.60733 + adj_OPEN * (1 - 0.60733)
+        part_1 = ind_neutral(temp, ind).diff(1).rank(axis=1, pct=True)
+        vwap_rank = rolling_rank(vwap, 3)
+        adv150_rank = rolling_rank(adv150, 9)
+        part_2 = vwap_rank.rolling(window=3).corr(adv150_rank).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+    elif factor_id == '080':
+        temp1 = ind_neutral(adj_OPEN * 0.868128 + adj_high * (1 - 0.868128), ind)
+        part_1 = np.sign(temp1.diff(4)).rank(axis=1, pct=True)
+        adv10 = adj_volume.rolling(window=10).mean()
+        part_2 = rolling_rank(adj_high.rolling(window=5).corr(adv10), 5)
+        factor = -1 * (part_1 ** part_2)
+        factor[rolling_stop(stop, 10)] = np.nan
+    elif factor_id == '081':
+        vwap = value / adj_volume
+        adv10 = adj_volume.rolling(window=10).mean()
+        sum_adv10 = adv10.rolling(window=49).sum()
+        corr_ = vwap.rolling(window=8).corr(sum_adv10)
+        corr_rank = corr_.rank(axis=1, pct=True)
+        part_1 = np.log(corr_rank.rolling(window=14).product()).rank(axis=1, pct=True)
+        vwap_rank = vwap_ind.rank(axis=1, pct=True)
+        volume_rank = volume.rank(axis=1, pct=True)
+        part_2 = vwap_rank.rolling(window=5).corr(volume_rank).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
+        factor = -1 * factor
+    elif factor_id == '082':
+        part_1 = linear_decay(adj_OPEN.diff(), 14).rank(axis=1, pct=True)
+        volume_ind = ind_neutral(adj_volume, ind)
+        corr_ = volume_ind.rolling(window=17).corr(adj_OPEN)
+        part_2 = rolling_rank(linear_decay(corr_, 6), 13)
+        factor = part_1
+        factor[part_1 > part_2] = part_2
+        factor = -1 * factor
+        factor[rolling_stop(stop, 17)] = np.nan
+    elif factor_id == '083':
+        temp1 = (adj_high - adj_low) / adj_close.rolling(window=5).mean()
+        part_1 = temp1.shift(2).rank(axis=1, pct=True) * adj_volume.rank(axis=1, pct=True)
+        part_2 = temp1 / (value / adj_volume - adj_close)
+        factor = part_1 / part_2
+        factor[rolling_stop(stop, 5)] = np.nan
+    elif factor_id == '084':
+        vwap = value / adj_volume
+        part_1 = rolling_rank(vwap - vwap.rolling(window=15).max(), 20)
+        part_2 = adj_close.diff(4)
+        factor = part_1 ** part_2
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '085':
+        temp1 = adj_high * 0.876703 + adj_close * (1 - 0.876703)
+        adv30 = adj_volume.rolling(window=30).mean()
+        corr_1 = temp1.rolling(window=9).corr(adv30)
+        part_1 = corr_1.rank(axis=1, pct=True)
+        hl_rank = rolling_rank((adj_high + adj_low) / 2, 3)
+        volume_rank = rolling_rank(volume, 10)
+        corr_2 = hl_rank.rolling(window=7).corr(volume_rank)
+        part_2 = corr_2.rank(axis=1, pct=True)
+        factor[rolling_stop(stop, 30)] = np.nan
+    elif factor_id == '086':
+        vwap = value / adj_volume
+        adv20 = adj_volume.rolling(window=20).mean()
+        sum_adv20 = adv10.rolling(window=14).sum()
+        part_1 = rolling_rank(adj_close.rolling(window=6).corr(sum_adv20), 20)
+        part_2 = (adj_close - vwap).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] =0
+        factor = -1 * factor
+    elif factor_id == '087':
+        vwap = value / adj_volume
+        adv81 = adj_volume.rolling(window=81).mean()
+        temp1 = adj_close * 0.369701 + vwap * (1 - 0.369701)
+        part_1 = linear_decay(temp1.diff(1), 2).rank(axis=1, pct=True)
+        adv81_ind = ind_neutral(adv81, ind)
+        corr_ = np.abs(adv81_ind.rolling(window=13).corr(adj_close))
+        part_2 = rolling_rank(linear_decay(corr_, 4), 14)
+        factor = part_1
+        factor[part_1 < part_2] = part_2
+        factor = -1 * factor
+        factor[rolling(stop, 13)] = np.nan
+    elif factor_id == '088':
+        temp1 = (adj_OPEN.rank(axis=1, pct=True) + adj_low.rank(axis=1, pct=True) - 
+                 adj_high.rank(axis=1, pct=True) - adj_close.rank(axis=1, cpt=True))
+        part_1 = linear_decay(temp1, 8).rank(axis=1, pct=True)
+        close_rank = rolling_rank(adj_close, 8)
+        adv60 = adj_volume.rolling(window=60).mean()
+        adv60_rank = rolling_rank(adv60_rank, 20)
+        corr_ = close_rank.rolling(window=8).corr(adv60_rank)
+        part_2 = rolling_rank(linear_decay(corr_, 6), 2)
+        factor = part_1
+        factor[part_1 > part_2] = part_2
+        factor[rolling_stop(stop, 20)] = np.nan
+    elif factor_id == '089':
+        vwap = value / adj_volume
+        adv10 = adj_volume.rolling(window=10).mean()
+        corr_ = adj_low.rolling(window=6).corr(adv10)
+        part_1 = rolling_rank(linear_decay(corr_, 5), 3)
+        vwap_ind = ind_neutral(vwap, ind)
+        part_2 = rolling_rank(linear_decay(vwap_ind.diff(3), 10), 15)
+        factor = part_1 - part_2
+        factor[rolling_stop(stop, 10)] = np.nan
     elif factor_id == '090':
         part_1 = (adj_close - adj_close.rolling(window=4).max()).rank(axis=1, pct=True)
         adv_ind = ind_neutral(adj_volume.rolling(window=40).mean(), ind)
         corr_ = adv_ind.rolling(window=5).corr(adj_low)
         part_2 = rolling_rank(corr_, 3)
         factor = -1 * (part_1 ** part_2)
-        
+        factor[rolling_stop(stop, 5)] = np.nan
     elif factor_id == '091':
         close_ind = ind_neutral(adj_close, ind)
         corr_1 = close_ind.rolling(window=9).corr(adj_volume)
@@ -528,9 +768,19 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         part_2 = linear_decay(corr_2, 2).rank(axis=1, pct=True)
         factor = -1 * (part_1 - part_2)
         factor[rolling_stop(stop, 30)] = np.nan
-    # elif factor_id == '092':
-    #     min(Ts_Rank(decay_linear(((((high + low) / 2) + close) < (low + open)), 14.7221),18.8683), 
-    #         Ts_Rank(decay_linear(correlation(rank(low), rank(adv30), 7.58555), 6.94024),6.80584))
+    elif factor_id == '092':
+        temp1 = (adj_high + adj_low) / 2 + adj_close
+        temp2 = adj_low + adj_OPEN
+        temp3 = temp1
+        temp3[temp1 < temp2] = 1
+        temp3[temp1 >= temp2] = 0
+        part_1 = rolling_rank(linear_decay(temp3, 14), 18)
+        low_rank = adj_low.rank(axis=1, pct=True)
+        adv30_rank = adj_volume.rolling(window=30).mean().rank(axis=1, pct=True)
+        corr_ = low_rank.rolling(window=7).corr(adv30_rank)
+        part_2 = rolling_rank(linear_decay(corr_, 6), 6)
+        factor = part_1
+        factor[part_1 > part_2] = part_2
     elif factor_id == '093':
         vwap = value / adj_volume
         ind_vwap = ind_neutral(vwap, ind)
@@ -547,8 +797,16 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         corr_ = vwap_rank.rolling(window=18).corr(adv_rank)
         part_2 = rolling_rank(corr_, 2)
         factor = -1 * (part_1 ** part_2)
-    # elif factor_id == '095':
-    #     (rank((open - ts_min(open, 12.4105))) < Ts_Rank((rank(correlation(sum(((high + low) / 2), 19.1351), sum(adv40, 19.1351), 12.8742))^5), 11.7584))
+    elif factor_id == '095':
+        adv40 = adj_volume.rolling(window=40).mean()
+        part_1 = (adj_OPEN - adj_OPEN.rolling(window=12).min()).rank(axis=1, pct=True)
+        temp1 = ((adj_high + adj_low) / 2).rolling(window=19).sum()
+        temp2 = adv40.rolling(window=19).sum()
+        corr_ = temp1.rolling(window=12).corr(temp2)
+        part_2 = rolling_rank(corr_.rank(axis=1, pct=True) ** 5, 11)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] = 0
     elif factor_id == '096':
         vwap_rank = (value / adj_volume).rank(axis=1, pct=True)
         volume_rank = adj_volume.rank(axis=1, pct=True)
@@ -583,8 +841,16 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False):
         part_2 = linear_decay(rolling_rank(ts_argmin, 6), 8).rank(axis=1, pct=True)
         factor = part_1 - part_2
         factor[rolling_stop(stop, 20)] = np.nan
-    # elif factor_id == '099':
-    #     ((rank(correlation(sum(((high + low) / 2), 19.8975), sum(adv60, 19.8975), 8.8136)) < rank(correlation(low, volume, 6.28259))) * -1)
+    elif factor_id == '099':
+        adv60 = adj_volume.rolling(window=60).mean()
+        temp1 = ((adj_high + adj_low) / 2).rolling(window=19).sum()
+        temp2 = adv60.rolling(window=19).sum()
+        part_1 = temp1.rolling(window=8).corr(temp2).rank(axis=1, pct=True)
+        part_2 = adj_low.rolling(window=6).corr(adj_volume).rank(axis=1, pct=True)
+        factor = part_1
+        factor[part_1 < part_2] = 1
+        factor[part_1 >= part_2] =0
+        factor = -1 * factor
     elif factor_id == '100':
         temp1 = adj_volume * ((adj_close - adj_low) - (adj_high - adj_close)) / (adj_high - adj_low)
         temp2 = ind_neutral(temp1.rank(axis=1, pct=True), ind)
