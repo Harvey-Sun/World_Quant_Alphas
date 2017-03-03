@@ -15,6 +15,7 @@ Fee_Rate = 0.001
 program_path = 'C:/cStrategy/'
 buy_number = 200
 period = 20
+s_or_b = False  # true表示选因子较小的股票，false表示选因子较大的股票
 
 
 def initial(sdk):
@@ -34,6 +35,7 @@ def init_per_day(sdk):
         volume = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TVOLUME')[-5:], columns=stock_list)
         adj_f = pd.DataFrame(sdk.getFieldData('LZ_GPA_CMFTR_CUM_FACTOR')[-5:], columns=stock_list)
         stop = pd.DataFrame(sdk.getFieldData('LZ_GPA_SLCIND_STOP_FLAG')[-6:], columns=stock_list)
+        volume.replace(0, np.nan, inplace=True)
         adj_close = close * adj_f
         adj_volume = volume / adj_f
         # 计算昨天的factor
@@ -41,8 +43,8 @@ def init_per_day(sdk):
         volume_rank = adj_volume.rank(axis=1, pct=True)
         factor = -1 * ((close_rank - close_rank.mean()) * (volume_rank - volume_rank.mean())).sum(skipna=False).rank(pct=True)
         factor[stop.notnull().any()] = np.nan  # 剔除停牌的股票
-        factor.sort_values(ascending=True, inplace=True)
-        stock_pool = factor.index[:buy_number]  # 选出因子较小的股票
+        factor.sort_values(ascending=s_or_b, inplace=True)
+        stock_pool = factor.index[:buy_number]  # 选出排序靠前的股票
         position = sdk.getPositions()
         position_dict = dict([i.code, i.optPosition] for i in position)
         stock_to_buy = set(stock_pool) - set(position_dict.keys())
