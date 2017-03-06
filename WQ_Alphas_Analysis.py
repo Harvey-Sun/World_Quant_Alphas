@@ -110,7 +110,6 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False, save=Fa
         volume[rolling_null(close, 63)] = np.nan
         cap[rolling_null(close, 63)] = np.nan
     
-    
     adj_OPEN = OPEN * price_adj_f
     adj_close = close * price_adj_f
     adj_high = high * price_adj_f
@@ -119,7 +118,6 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False, save=Fa
     returns = adj_close.pct_change()
     vwap = value / adj_volume
     
-
     print '开始计算'
     if factor_id == '001':
         returns[returns < 0] = returns.rolling(window=20).std(skipna=False)
@@ -232,7 +230,7 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False, save=Fa
         factor[rolling_null(close, 10)] = np.nan
         factor[rolling_stop(stop, 10)] = np.nan
     elif factor_id == '019':
-        factor = -1 * np.sign(adj_close.diff(7)) * (1 + returns.rolling(window=250).sum())
+        factor = -1 * np.sign(adj_close.diff(7)) * ((1 + returns.rolling(window=250).sum()).rank(axis=1, pct=True) + 1)
         factor[rolling_null(close, 250)] = np.nan
         factor[rolling_stop(stop, 8)] = np.nan
     elif factor_id == '020':
@@ -1139,7 +1137,9 @@ data = {'high': high,
         'price_adj_f': price_adj_f}
 
 
-factor = factor_cal(data, '004', no_zdt=False, no_st=False, no_new=False)
+factor = factor_cal(data, '019', no_zdt=False, no_st=False, no_new=True, save=True)
+save_factor(factor, '015', no_zdt=True)
+
 factor_006 = factor_cal(data, '006', no_zdt=False)
 factors = pd.concat([factor.stack(), factor_006.stack()], axis=1)
 days = factors.index.levels[0]
@@ -1179,7 +1179,7 @@ a['group_mean'].mean().plot()
 a['group_mean']['Factor Average'].plot(figsize=(14, 7))
 a['group_return'].columns.name
 
-a = _analysis(stt, data, 'close-close', stock_number=50, ascending=True, period=10)
+a = _analysis(stt, data, 'close-close', stock_number=10, ascending=False, period=10)
 a['mean_return'].mean()
 a['factor_mean'].min()
 (a['mean_return'] + 1).cumprod().plot(figsize=(14, 7))

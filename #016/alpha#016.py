@@ -6,7 +6,7 @@ import pandas as pd
 
 username = 'Harvey_Sun'
 password = 'P948894dgmcsy'
-Strategy_Name = 'WQ_alpha#044_20_100'
+Strategy_Name = 'WQ_alpha#016_10_100'
 
 INIT_CAP = 100000000
 START_DATE = '20130101'
@@ -14,7 +14,7 @@ END_DATE = '20161231'
 Fee_Rate = 0.001
 program_path = 'C:/cStrategy/'
 buy_number = 100
-period = 20
+period = 10
 s_or_b = False  # true表示选因子较小的股票，false表示选因子较大的股票
 
 
@@ -46,8 +46,10 @@ def init_per_day(sdk):
         adj_high = high * adj_f
         adj_volume = volume / adj_f
         # 计算昨天的factor
+        high_rank = adj_high.rank(axis=1, pct=True)
         volume_rank = adj_volume.rank(axis=1, pct=True)
-        factor = -1 * correlation(adj_high, volume_rank)
+        factor = -1 * ((high_rank - high_rank.mean()) * (volume_rank - volume_rank.mean())).sum(skipna=False).rank(
+            pct=True)
         # 选出排序靠前的股票
         factor[stop.notnull().any()] = np.nan  # 剔除停牌的股票
         factor.sort_values(ascending=s_or_b, inplace=True)
