@@ -6,7 +6,7 @@ import pandas as pd
 
 username = 'Harvey_Sun'
 password = 'P948894dgmcsy'
-Strategy_Name = 'WQ_alpha#083_20_100'
+Strategy_Name = 'WQ_alpha#055_20_100'
 
 INIT_CAP = 100000000
 START_DATE = '20130101'
@@ -26,9 +26,9 @@ def correlation(x, y):
 
 
 def initial(sdk):
-    sdk.prepareData(['LZ_GPA_QUOTE_THIGH', 'LZ_GPA_QUOTE_TVOLUME',
-                     'LZ_GPA_QUOTE_TLOW', 'LZ_GPA_QUOTE_TCLOSE', 'LZ_GPA_QUOTE_TVALUE',
-                     'LZ_GPA_CMFTR_CUM_FACTOR', 'LZ_GPA_SLCIND_STOP_FLAG'])
+    sdk.prepareData(['LZ_GPA_QUOTE_THIGH', 'LZ_GPA_QUOTE_TLOW',
+                     'LZ_GPA_CMFTR_CUM_FACTOR', 'LZ_GPA_QUOTE_TCLOSE',
+                     'LZ_GPA_QUOTE_TVOLUME', 'LZ_GPA_SLCIND_STOP_FLAG'])
     stock_pool = []
     sdk.setGlobal('stock_pool', stock_pool)
     step = period
@@ -39,26 +39,23 @@ def init_per_day(sdk):
     step = sdk.getGlobal('step')
     if step == period:
         stock_list = sdk.getStockList()
-        high = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_THIGH')[-7:], columns=stock_list)
-        low = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TLOW')[-7:], columns=stock_list)
-        close = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TCLOSE')[-7:], columns=stock_list)
-        volume = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TVOLUME')[-7:], columns=stock_list)
-        value = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TVALUE')[-7:], columns=stock_list)
-        adj_f = pd.DataFrame(sdk.getFieldData('LZ_GPA_CMFTR_CUM_FACTOR')[-7:], columns=stock_list)
-        stop = pd.DataFrame(sdk.getFieldData('LZ_GPA_SLCIND_STOP_FLAG')[-8:], columns=stock_list)
+        high = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_THIGH')[-17:], columns=stock_list)
+        low = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TLOW')[-17:], columns=stock_list)
+        volume = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TVOLUME')[-17:], columns=stock_list)
+        close = pd.DataFrame(sdk.getFieldData('LZ_GPA_QUOTE_TCLOSE')[-17:], columns=stock_list)
+        adj_f = pd.DataFrame(sdk.getFieldData('LZ_GPA_CMFTR_CUM_FACTOR')[-17:], columns=stock_list)
+        stop = pd.DataFrame(sdk.getFieldData('LZ_GPA_SLCIND_STOP_FLAG')[-18:], columns=stock_list)
         volume.replace(0, np.nan, inplace=True)
         adj_high = high * adj_f
         adj_low = low * adj_f
         adj_close = close * adj_f
         adj_volume = volume / adj_f
         # 计算昨天的factor
-        temp = (adj_high - adj_low) / adj_close.rolling(window=5).mean()
-        volume_rank = adj_volume.rank(axis=1, pct=True)
-        vwap = value / adj_volume
-        upside = temp.diff(2).rank(axis=1, pct=True).iloc[-1] * volume_rank.iloc[-1]
-        dnside = (temp / (vwap - adj_close)).iloc[-1]
-        factor = upside / dnside
-        factor[adj_close.isnull().any()] = np.nan
+        temp = (adj_close - adj_low.rolling(window=12).mean()) / \
+               (adj_high.rolling(window=12).max() - adj_low.rolling(window=12).min())
+        part_1 = temp.rank(axis=1, pct=True)[11:]
+        part_2 = adj_volume.rank(axis=1, pct=True)[11:]
+        factor = -1 * correlation(part_1, part_2)
         # 选出排序靠前的股票
         factor[stop.notnull().any()] = np.nan  # 剔除停牌的股票
         factor.sort_values(ascending=s_or_b, inplace=True)
@@ -80,7 +77,7 @@ def strategy(sdk):
     if step == period:
         step = 1
         today = sdk.getNowDate()
-        sdk.sdklog(today, '====================')
+        sdk.sdklog(today,'====================')
 
         position_dict = sdk.getGlobal('position_dict')
         stock_to_buy = sdk.getGlobal('stock_to_buy')

@@ -118,7 +118,7 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False, save=Fa
     returns = adj_close.pct_change()
     vwap = value / adj_volume
     
-    print '开始计算'
+    print '开始计算%s号因子' % factor_id
     if factor_id == '001':
         returns[returns < 0] = returns.rolling(window=20).std(skipna=False)
         ts_argmax = np.square(returns).rolling(window=5).apply(np.argmax) + 1
@@ -383,7 +383,8 @@ def factor_cal(data, factor_id, no_zdt=False, no_st=False, no_new=False, save=Fa
         factor[rolling_null(close, 10)] = np.nan
         factor[rolling_stop(stop, 10)] = np.nan
     elif factor_id == '041':
-        factor = ((adj_high * adj_low) ** 0.5 - vwap * 10)
+        factor = ((adj_high * adj_low) ** 0.5 - vwap * 10) / adj_close
+        factor = np.abs(factor.T - factor.mean(axis=1)).T
         factor[stop.notnull()] = np.nan
     elif factor_id == '042':
         factor = (vwap - adj_close).rank(axis=1, pct=True) / (vwap + adj_close).rank(axis=1, pct=True)
@@ -1187,4 +1188,14 @@ a['stocks'].to_csv('F:\Strategies\World_Quant_Alphas/10_stocks.csv')
 a['factors'].head()
 
 
+# ============因子相关性分析============================
 
+factor_list = ['002', '013', '015', '016', '041', '044', '055', '083']
+factors = pd.DataFrame()
+for i in factor_list:
+    factor = factor_cal(data, i, no_zdt=False, no_st=False, no_new=False, save=False)
+    factor = factor.stack()
+    factor.name = i
+    factors = pd.concat([factors, factor], axis=1)
+
+factors.corr().to_csv('correlation.csv')

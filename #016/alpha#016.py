@@ -6,7 +6,7 @@ import pandas as pd
 
 username = 'Harvey_Sun'
 password = 'P948894dgmcsy'
-Strategy_Name = 'WQ_alpha#016_10_100'
+Strategy_Name = 'WQ_alpha#016_20_100'
 
 INIT_CAP = 100000000
 START_DATE = '20130101'
@@ -14,7 +14,7 @@ END_DATE = '20161231'
 Fee_Rate = 0.001
 program_path = 'C:/cStrategy/'
 buy_number = 100
-period = 10
+period = 20
 s_or_b = False  # true表示选因子较小的股票，false表示选因子较大的股票
 
 

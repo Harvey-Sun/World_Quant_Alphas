@@ -6,7 +6,7 @@ import pandas as pd
 
 username = 'Harvey_Sun'
 password = 'P948894dgmcsy'
-Strategy_Name = 'WQ_alpha#083_20_100'
+Strategy_Name = 'WQ_alpha#MF_05_100'
 
 INIT_CAP = 100000000
 START_DATE = '20130101'
@@ -14,7 +14,7 @@ END_DATE = '20161231'
 Fee_Rate = 0.001
 program_path = 'C:/cStrategy/'
 buy_number = 100
-period = 20
+period = 5
 s_or_b = False  # true表示选因子较小的股票，false表示选因子较大的股票
 
 
@@ -23,6 +23,18 @@ def correlation(x, y):
     dnside = x.std() * y.std()
     result = upside / dnside
     return result
+
+
+def winsorize(x):
+    sigma = x.std()
+    m = x.mean()
+    x[x > m + 3 * sigma] = x + 3 * sigma
+    x[x < m - 3 * sigma] = x - 3 * sigma
+    return x
+
+
+def standardize(x):
+    return (x - x.mean()) / x.std()
 
 
 def initial(sdk):
@@ -51,14 +63,20 @@ def init_per_day(sdk):
         adj_low = low * adj_f
         adj_close = close * adj_f
         adj_volume = volume / adj_f
-        # 计算昨天的factor
+        # 计算昨天的#83号factor
         temp = (adj_high - adj_low) / adj_close.rolling(window=5).mean()
         volume_rank = adj_volume.rank(axis=1, pct=True)
         vwap = value / adj_volume
         upside = temp.diff(2).rank(axis=1, pct=True).iloc[-1] * volume_rank.iloc[-1]
         dnside = (temp / (vwap - adj_close)).iloc[-1]
-        factor = upside / dnside
-        factor[adj_close.isnull().any()] = np.nan
+        factor83 = upside / dnside
+        factor83[adj_close.isnull().any()] = np.nan
+        factor83.replace([np.inf, -np.inf], 0, inplace=True)
+        # 计算昨日的#41号factor
+        factor41 = (((adj_high * adj_low) ** 0.5 - (value / adj_volume) * 10) / adj_close).iloc[-1]  # 计算昨天的alpha41
+        factor41 = -1 * np.abs(factor41 - factor41.mean())
+        # 处理因子并组合
+        factor = standardize(winsorize(factor83)) + standardize(winsorize(factor41))
         # 选出排序靠前的股票
         factor[stop.notnull().any()] = np.nan  # 剔除停牌的股票
         factor.sort_values(ascending=s_or_b, inplace=True)
